@@ -16,6 +16,7 @@ import org.springframework.web.servlet.view.RedirectView;
 
 import com.example.mohituniyal.watchlist.entity.Movie;
 import com.example.mohituniyal.watchlist.service.DatabaseService;
+import com.example.mohituniyal.watchlist.service.movieRating;
 
 import jakarta.validation.Valid;
 
@@ -24,6 +25,9 @@ public class MovieController {
 	
 	@Autowired
 	DatabaseService databseservice;
+	
+	@Autowired
+	movieRating movierating;
 
 	@GetMapping("/watchlistreview")
 	public ModelAndView showWatchlistForm(@RequestParam(required = false) Integer id) {
@@ -47,33 +51,45 @@ public class MovieController {
 	
 	}
 	
-	@PostMapping("/watchlistreview")
-	public ModelAndView createWatchlistItem(@Valid @ModelAttribute("watchlistItem")Movie movie, BindingResult bindingresult) {
-		
-		
-		if(bindingresult.hasErrors()) {
-			System.out.println(bindingresult.hasErrors());
-			
-			return new ModelAndView("watchlistreview");
-		}
-		// If we have to update the data
-		//if(id==null)
-		// databseservice.create(movie);
-		//In case of Updation
-		//else
-		// databseservice.update(movie,id);
-		
-		Integer id = movie.getId();
-		
-	if(id==null) {
-		databseservice.Create(movie);
-	}else {
-		databseservice.update(movie,id);
-	}
-		RedirectView rd = new RedirectView();
-		rd.setUrl("/watchlist");
-		return new ModelAndView(rd);
-	}
+	 @PostMapping("/watchlistreview")
+	    public ModelAndView createWatchlistItem(@Valid @ModelAttribute("watchlistItem") Movie movie, BindingResult bindingresult) {
+
+	        if (bindingresult.hasErrors()) {
+	            return new ModelAndView("watchlistreview");
+	        }
+	        
+	        // Fetch the rating from OMDb API if it's a new movie
+	        if (movie.getId() == null) {
+	            String rating = movierating.getMovieRating(movie.getTitle());
+	            
+	            // Check if the movie is not found in OMDb
+	            if (rating == null || rating.equals("Movie not found in OMDb")) {
+	                ModelAndView mav = new ModelAndView("watchlistreview");
+	                mav.addObject("error", "Movie not found in OMDb. Please enter a valid movie name.");
+	                return mav;
+	            }
+
+	            try {
+	                movie.setRating(Float.parseFloat(rating));
+	            } catch (NumberFormatException e) {
+	                ModelAndView mav = new ModelAndView("watchlistreview");
+	                mav.addObject("error", "Invalid rating format. Please try again.");
+	                return mav;
+	            }
+	        }
+	        
+	        // If the movie is being updated
+	        Integer id = movie.getId();
+	        if (id == null) {
+	            databseservice.Create(movie);
+	        } else {
+	            databseservice.update(movie, id);
+	        }
+
+	        RedirectView rd = new RedirectView();
+	        rd.setUrl("/watchlist");
+	        return new ModelAndView(rd);
+	    }
 	
 	@GetMapping("/watchlist")
 	public ModelAndView getWatchlistItem() {
